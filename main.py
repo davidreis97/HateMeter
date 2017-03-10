@@ -45,3 +45,5 @@ if __name__ == '__main__':
         inputs.insert(0,tweet.text)
 
     print(phrase_processing(person,inputs))
+
+
