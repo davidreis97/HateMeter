@@ -1,57 +1,35 @@
-import nltk
 import twitter
-from collections import Counter
-from os.path import expanduser
-from nltk.tag.stanford import StanfordPOSTagger
+import credentials
+import urllib.parse
+from textblob import TextBlob
 
+query = "merkel"
 
-def phrase_processing(person, inputs):
+api = twitter.Api(consumer_key=credentials.consumer_key,
+                  consumer_secret=credentials.consumer_secret,
+                  access_token_key=credentials.access_token_key,
+                  access_token_secret=credentials.access_token_secret)
 
-    home = expanduser("~")
+results = api.GetSearch(raw_query=f"q={urllib.parse.quote(query)}&result_type=recent&count=100&lang=en")
 
-    _path_to_model = home + "/PycharmProjects/Hatemeter/stanford-postagger/models/english-left3words-distsim.tagger" #You need to download and set this up before running
-    _path_to_jar = home + "/PycharmProjects/Hatemeter/stanford-postagger/stanford-postagger.jar" #You need to download and set this up before running
+total = 0
 
-    st = StanfordPOSTagger(model_filename=_path_to_model, path_to_jar=_path_to_jar)
+occurrences = {}
 
-    final_phrase = ""
-    final_phrase += person + " is "
+tagsOfInterest = ["JJ", "JJR", "JJS", "RBR", "RBS", "NN", "NNS", "NP", "NPS", "RP"]
+spam = ["https","amp"]
 
-    adjectives = []
+for result in results:
+    blob = TextBlob(result.text)
+    total += blob.sentiment.polarity * blob.sentiment.subjectivity
 
-    phrases = []
+    for piece in blob.tags:
+        if len(piece[0]) >= 3 and piece[1] in tagsOfInterest and piece[1] not in spam:
+            if piece[0] in occurrences:
+                occurrences[piece[0]] += 1
+            else:
+                occurrences[piece[0]] = 1
 
-    for phrase in inputs:
-        phrases.insert(0, nltk.word_tokenize(phrase))
+occurrences = {k: v for k, v in sorted(occurrences.items(), key=lambda item: item[1], reverse=True)}
 
-    processed_text = st.tag(inputs)
-
-    print(processed_text)
-
-    for word in processed_text:
-        if word[1] == "JJ" and len(word[0]) > 2:
-            adjectives.insert(0, word[0])
-
-    count = Counter(adjectives)
-
-    for adjective in count.most_common(5):
-        final_phrase += adjective[0] + " "
-
-    return final_phrase
-
-
-if __name__ == '__main__':
-
-    person = "Trump"
-
-    api = twitter.Api([CONFIDENTIAL])
-
-    twitterResponseJSON = api.GetSearch(term=person, count=100)
-
-    inputs = []
-
-    for tweet in twitterResponseJSON:
-        if tweet.text not in inputs:
-            inputs.insert(0, tweet.text)
-
-    print(phrase_processing(person, inputs))
+print(occurrences)
