@@ -1,1 +1,1 @@
-# HateMeter
+# Hatemeter
